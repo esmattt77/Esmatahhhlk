@@ -44,12 +44,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         reply_markup=reply_markup,
     )
 
+# تم التعديل لعرض الروبل
 async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
     balance = smsman_api.get_smsman_balance()
     if balance is not False:
-        await query.message.reply_text(f"رصيد حسابك في موقع SMS-Man هو: {balance:.2f} $")
+        await query.message.reply_text(f"رصيد حسابك في موقع SMS-Man هو: {balance:.2f} ₽")
     else:
         await query.message.reply_text("حدث خطأ في جلب الرصيد. يرجى المحاولة مرة أخرى لاحقاً.")
 
@@ -87,12 +88,11 @@ async def buy_number_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         reply_markup=reply_markup
     )
     
-# الدالة الجديدة والمعدلة: لعرض قائمة الدول مع الصفحات
+# تم التعديل لعرض الروبل وأزرار أنيقة
 async def get_countries_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer("جاري تحميل قائمة الدول...", show_alert=True)
     
-    # الحصول على هوية الخدمة ورقم الصفحة
     data = query.data.split('_')
     service_id = data[1]
     current_page = int(data[2]) if len(data) > 2 else 0
@@ -101,10 +101,8 @@ async def get_countries_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     countries = smsman_api.get_smsman_countries(app_id=service_id)
 
-    # فرز الدول حسب السعر من الأرخص للأعلى
     sorted_countries = sorted(countries.values(), key=lambda c: c['price'])
     
-    # تقسيم قائمة الدول إلى صفحات
     start_index = current_page * 10
     end_index = start_index + 10
     countries_to_display = sorted_countries[start_index:end_index]
@@ -116,11 +114,11 @@ async def get_countries_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
         price = country['price']
         count = country['count']
         
-        button_text = f"{country_name} | {price:.2f}$ | متوفر: {count}"
+        # تصميم الزر الجديد
+        button_text = f"🔹 {country_name} | {price:.2f} ₽ | متوفر: {count}"
         callback_data = f"request_{service_id}_{country['code']}"
         keyboard.append([InlineKeyboardButton(button_text, callback_data=callback_data)])
     
-    # إضافة أزرار التنقل (التالي/السابق)
     nav_buttons = []
     if current_page > 0:
         nav_buttons.append(InlineKeyboardButton("⬅️ السابق", callback_data=f"countries_{service_id}_{current_page - 1}"))
@@ -224,7 +222,6 @@ async def handle_static_buttons(update: Update, context: ContextTypes.DEFAULT_TY
 def main() -> None:
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     
-    # إضافة الأوامر (Handlers)
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(show_balance, pattern='^Payment$'))
     application.add_handler(CallbackQueryHandler(show_account_record, pattern='^Record$'))
@@ -235,11 +232,9 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(check_code, pattern='^check_code$'))
     application.add_handler(CallbackQueryHandler(cancel_request, pattern='^cancel_request$'))
 
-    # معالج الأزرار الخاصة بالخدمات والصفحات
     application.add_handler(CallbackQueryHandler(get_countries_menu, pattern='^countries_\d+_\d+$'))
     application.add_handler(CallbackQueryHandler(get_countries_menu, pattern='^service_\d+$'))
 
-    # معالجات الأزرار المتبقية (قيد التطوير)
     application.add_handler(CallbackQueryHandler(handle_static_buttons, pattern='^sh$'))
     application.add_handler(CallbackQueryHandler(handle_static_buttons, pattern='^Wo$'))
     application.add_handler(CallbackQueryHandler(handle_static_buttons, pattern='^worldwide$'))
@@ -248,7 +243,6 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(handle_static_buttons, pattern='^readycard-10$'))
     application.add_handler(CallbackQueryHandler(handle_static_buttons, pattern='^ready$'))
     
-    # تشغيل البوت باستخدام Webhooks
     @app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=["POST"])
     async def webhook_handler():
         """Handle incoming webhook updates."""
