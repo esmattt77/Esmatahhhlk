@@ -23,9 +23,16 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 WEBHOOK_URL = os.environ.get('WEBHOOK_URL')
 PORT = int(os.environ.get('PORT', 5000))
+# تم إضافة هذا المتغير
+ADMIN_ID = int(os.environ.get('ADMIN_ID', 0))
 
 # تهيئة تطبيق Flask
 app = Flask(__name__)
+
+# دالة مساعدة للتحقق من هوية الأدمن
+def is_admin(user_id):
+    return user_id == ADMIN_ID
+
 
 # دالة الرد على أمر /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -44,19 +51,30 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         reply_markup=reply_markup,
     )
 
-# تم التعديل لعرض الروبل
+# تم تعديل هذه الدالة
 async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
+
+    if not is_admin(query.from_user.id):
+        await query.message.reply_text("عذراً، هذه الميزة مخصصة للمالك فقط.")
+        return
+    
     balance = smsman_api.get_smsman_balance()
     if balance is not False:
         await query.message.reply_text(f"رصيد حسابك في موقع SMS-Man هو: {balance:.2f} ₽")
     else:
         await query.message.reply_text("حدث خطأ في جلب الرصيد. يرجى المحاولة مرة أخرى لاحقاً.")
 
+# تم تعديل هذه الدالة
 async def show_account_record(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
+
+    if not is_admin(query.from_user.id):
+        await query.message.reply_text("عذراً، هذه الميزة مخصصة للمالك فقط.")
+        return
+
     last_request_id = context.user_data.get('request_id')
     last_phone_number = context.user_data.get('phone_number')
     if last_request_id and last_phone_number:
@@ -88,7 +106,6 @@ async def buy_number_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         reply_markup=reply_markup
     )
     
-# تم التعديل لعرض الروبل وأزرار أنيقة
 async def get_countries_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer("جاري تحميل قائمة الدول...", show_alert=True)
@@ -114,7 +131,6 @@ async def get_countries_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
         price = country['price']
         count = country['count']
         
-        # تصميم الزر الجديد
         button_text = f"🔹 {country_name} | {price:.2f} ₽ | متوفر: {count}"
         callback_data = f"request_{service_id}_{country['code']}"
         keyboard.append([InlineKeyboardButton(button_text, callback_data=callback_data)])
@@ -228,12 +244,12 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(buy_number_menu, pattern='^Buynum$'))
     application.add_handler(CallbackQueryHandler(back_to_main, pattern='^back_to_main$'))
     application.add_handler(CallbackQueryHandler(back_to_services, pattern='^back_to_services$'))
-    application.add_handler(CallbackQueryHandler(request_number, pattern='^request_\d+_\d+$'))
+    application.add_handler(CallbackQueryHandler(request_number, pattern=r'^request_\d+_\d+$'))
     application.add_handler(CallbackQueryHandler(check_code, pattern='^check_code$'))
     application.add_handler(CallbackQueryHandler(cancel_request, pattern='^cancel_request$'))
 
-    application.add_handler(CallbackQueryHandler(get_countries_menu, pattern='^countries_\d+_\d+$'))
-    application.add_handler(CallbackQueryHandler(get_countries_menu, pattern='^service_\d+$'))
+    application.add_handler(CallbackQueryHandler(get_countries_menu, pattern=r'^countries_\d+_\d+$'))
+    application.add_handler(CallbackQueryHandler(get_countries_menu, pattern=r'^service_\d+$'))
 
     application.add_handler(CallbackQueryHandler(handle_static_buttons, pattern='^sh$'))
     application.add_handler(CallbackQueryHandler(handle_static_buttons, pattern='^Wo$'))
