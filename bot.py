@@ -32,7 +32,7 @@ sms_api.api_key = os.environ.get('SMS_ACTIVATE_API_KEY', 'your_api_key_here')
 # تعيين الخدمات
 SERVICES = {
     'tg': 'تيليجرام',
-    'wa': 'واتساب',
+    'wa': 'واتساب', 
     'fb': 'فيسبوك',
     'ig': 'انستجرام',
     'tw': 'تويتر',
@@ -47,7 +47,6 @@ SERVICES = {
 users_db = {}
 orders_db = {}
 
-# دالة البدء
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     user_id = user.id
@@ -82,7 +81,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         reply_markup=reply_markup
     )
 
-# دالة الرصيد
 async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -104,12 +102,11 @@ async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await query.edit_message_text(message, reply_markup=reply_markup)
+        await query.edit_message_text(message, reply_markup=reply_markup, parse_mode='Markdown')
         
     except RequestError as e:
         await query.edit_message_text(f"❌ حدث خطأ: {str(e)}")
 
-# قائمة شراء الأرقام
 async def buy_numbers_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -124,10 +121,10 @@ async def buy_numbers_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await query.edit_message_text(
         "🛍️ **اختر الخدمة:**\n\n"
         "اختر الخدمة التي تريد شراء رقم لها:",
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
     )
 
-# قائمة الدول للخدمة المحددة
 async def show_countries(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -148,7 +145,7 @@ async def show_countries(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 price = prices[service_key]['cost']
                 count = prices[service_key]['count']
                 
-                if count > 0:  # عرض فقط الدول المتوفرة
+                if count > 0:
                     button_text = f"🇺🇳 {country_info['name']} - ${price} ({count})"
                     keyboard.append([
                         InlineKeyboardButton(
@@ -163,13 +160,13 @@ async def show_countries(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await query.edit_message_text(
             f"🌍 **اختر الدولة للخدمة: {SERVICES[service_code]}**\n\n"
             "اختر الدولة التي تريد الرقم منها:",
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
         )
         
     except RequestError as e:
         await query.edit_message_text(f"❌ حدث خطأ: {str(e)}")
 
-# طلب الرقم
 async def request_number(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -178,10 +175,8 @@ async def request_number(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     service_code = context.user_data.get('selected_service')
     
     try:
-        # طلب الرقم
         number_info = sms_api.get_number(service_code, country_id)
         
-        # حفظ الطلب في قاعدة البيانات
         order_id = number_info['id']
         orders_db[order_id] = {
             'user_id': query.from_user.id,
@@ -192,7 +187,6 @@ async def request_number(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             'order_time': datetime.now()
         }
         
-        # تحديث إحصائيات المستخدم
         user_id = query.from_user.id
         if user_id in users_db:
             users_db[user_id]['total_orders'] += 1
@@ -210,13 +204,13 @@ async def request_number(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             f"🛍️ **الخدمة:** {SERVICES[service_code]}\n"
             f"🆔 **رقم الطلب:** `{order_id}`\n\n"
             f"استخدم الرقم في التطبيق المطلوب، ثم اضغط على 'الحصول على الكود'",
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
         )
         
     except RequestError as e:
         await query.edit_message_text(f"❌ حدث خطأ في طلب الرقم: {str(e)}")
 
-# الحصول على الكود
 async def get_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -227,7 +221,6 @@ async def get_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         status_info = sms_api.get_status(order_id)
         
         if status_info['code']:
-            # تم استلام الكود
             orders_db[order_id]['status'] = 'completed'
             orders_db[order_id]['code'] = status_info['code']
             
@@ -235,10 +228,10 @@ async def get_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"🎉 **تم استلام الكود بنجاح!**\n\n"
                 f"🔢 **الكود:** `{status_info['code']}`\n"
                 f"🆔 **رقم الطلب:** `{order_id}`\n\n"
-                f"يمكنك الآن استخدام الكود لإكمال العملية."
+                f"يمكنك الآن استخدام الكود لإكمال العملية.",
+                parse_mode='Markdown'
             )
         else:
-            # لم يصل الكود بعد
             keyboard = [
                 [InlineKeyboardButton('🔄 تحديث', callback_data=f'get_code_{order_id}')],
                 [InlineKeyboardButton('❌ إلغاء الطلب', callback_data=f'cancel_{order_id}')]
@@ -248,13 +241,13 @@ async def get_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await query.edit_message_text(
                 f"⏳ **في انتظار الكود...**\n\n"
                 f"لم يصل الكود بعد. يرجى الانتظار قليلاً ثم الضغط على تحديث.",
-                reply_markup=reply_markup
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
             )
             
     except RequestError as e:
         await query.edit_message_text(f"❌ حدث خطأ: {str(e)}")
 
-# إلغاء الطلب
 async def cancel_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -262,23 +255,21 @@ async def cancel_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     order_id = query.data.split('_')[1]
     
     try:
-        # إلغاء الطلب في API
-        sms_api.set_status(order_id, 8)  # 8 = إلغاء
+        sms_api.set_status(order_id, 8)
         
-        # تحديث قاعدة البيانات
         if order_id in orders_db:
             orders_db[order_id]['status'] = 'cancelled'
         
         await query.edit_message_text(
             f"✅ **تم إلغاء الطلب بنجاح**\n\n"
             f"🆔 رقم الطلب: `{order_id}`\n"
-            f"تم إلغاء الطلب واسترجاع الرصيد."
+            f"تم إلغاء الطلب واسترجاع الرصيد.",
+            parse_mode='Markdown'
         )
         
     except RequestError as e:
         await query.edit_message_text(f"❌ حدث خطأ في الإلغاء: {str(e)}")
 
-# لوحة المشرفين
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -292,7 +283,6 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         balance_info = sms_api.get_balance_and_cashback()
         numbers_status = sms_api.get_numbers_status()
         
-        # إحصائيات البوت
         total_users = len(users_db)
         total_orders = sum(user['total_orders'] for user in users_db.values())
         active_orders = sum(1 for order in orders_db.values() if order['status'] == 'active')
@@ -317,22 +307,19 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             f"📱 **الأرقام المتاحة:**\n"
         )
         
-        # عرض بعض الخدمات المتاحة
         for service, count in list(numbers_status.items())[:5]:
             if count > 0:
                 message += f"• {SERVICES.get(service, service)}: {count}\n"
         
-        await query.edit_message_text(message, reply_markup=reply_markup)
+        await query.edit_message_text(message, reply_markup=reply_markup, parse_mode='Markdown')
         
     except RequestError as e:
         await query.edit_message_text(f"❌ حدث خطأ: {str(e)}")
 
-# العودة للقائمة الرئيسية
 async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
     
-    # إعادة إنشاء القائمة الرئيسية
     user = query.from_user
     user_id = user.id
     
@@ -349,24 +336,29 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await query.edit_message_text(
-        f"مرحباً {user.mention_html()}! 👋\n\n"
+        f"مرحباً {user.first_name}! 👋\n\n"
         "أهلاً بك في بوت شراء الأرقام الافتراضية.\n"
         "اختر الخدمة التي تريدها من القائمة:",
-        reply_markup=reply_markup,
-        parse_mode='HTML'
+        reply_markup=reply_markup
     )
 
-# دالة رئيسية لتشغيل البوت
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """معالجة الرسائل النصية"""
+    await update.message.reply_text(
+        "يرجى استخدام الأزرار في القائمة للتفاعل مع البوت.\n"
+        "اكتب /start لعرض القائمة الرئيسية."
+    )
+
 def main():
-    # التحقق من وجود التوكن
     if not TELEGRAM_BOT_TOKEN:
         raise ValueError("يجب تعيين متغير البيئة TELEGRAM_BOT_TOKEN")
     
-    # إنشاء التطبيق
+    # إنشاء التطبيق مع الإصدار المتوافق
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     
     # إضافة المعالجات
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     # معالجات الاستدعاء
     application.add_handler(CallbackQueryHandler(show_balance, pattern='^my_balance$'))
@@ -378,7 +370,7 @@ def main():
     application.add_handler(CallbackQueryHandler(admin_panel, pattern='^admin_panel$'))
     application.add_handler(CallbackQueryHandler(main_menu, pattern='^main_menu$'))
     
-    # معالجات أخرى (يمكن إضافتها لاحقاً)
+    # معالجات للوظائف المستقبلية
     application.add_handler(CallbackQueryHandler(lambda update, ctx: update.callback_query.answer("قيد التطوير..."), 
                                               pattern='^my_stats$'))
     application.add_handler(CallbackQueryHandler(lambda update, ctx: update.callback_query.answer("قيد التطوير..."), 
@@ -389,6 +381,8 @@ def main():
                                               pattern='^admin_users$'))
     
     print("🤖 البوت يعمل...")
+    
+    # بدء البوت
     application.run_polling()
 
 if __name__ == "__main__":
