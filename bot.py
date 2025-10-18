@@ -2,7 +2,6 @@
 
 import os
 import logging
-import asyncio
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -18,16 +17,26 @@ from sms_activate_api import sms_api, RequestError
 
 # إعدادات التسجيل
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", 
+    level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# الحصول على التوكن من المتغيرات البيئية
+# الحصول على المتغيرات البيئية
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
-ADMIN_IDS = list(map(int, os.environ.get('ADMIN_IDS', '').split(','))) if os.environ.get('ADMIN_IDS') else []
+SMS_ACTIVATE_API_KEY = os.environ.get('SMS_ACTIVATE_API_KEY')
+WEBHOOK_URL = os.environ.get('WEBHOOK_URL', '').rstrip('/')
+PORT = int(os.environ.get('PORT', 8080))
+
+# إعدادات المشرفين
+admin_ids_str = os.environ.get('ADMIN_IDS', '8102857570')
+try:
+    ADMIN_IDS = [int(id.strip()) for id in admin_ids_str.split(',')]
+except:
+    ADMIN_IDS = [8102857570]
 
 # تعيين مفتاح API
-sms_api.api_key = os.environ.get('SMS_ACTIVATE_API_KEY', 'your_api_key_here')
+sms_api.api_key = SMS_ACTIVATE_API_KEY
 
 # تعيين الخدمات
 SERVICES = {
@@ -43,15 +52,16 @@ SERVICES = {
     'wb': 'وي شات'
 }
 
-# قاعدة بيانات بسيطة (في الإنتاج استخدم قاعدة بيانات حقيقية)
+# قاعدة بيانات بسيطة
 users_db = {}
 orders_db = {}
+
+# ========== دوال البوت (نفس الكود السابق) ==========
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     user_id = user.id
     
-    # تسجيل المستخدم إذا كان جديداً
     if user_id not in users_db:
         users_db[user_id] = {
             'username': user.username,
@@ -68,7 +78,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         [InlineKeyboardButton('🛒 طلباتي', callback_data='my_orders')],
     ]
     
-    # إضافة لوحة المشرفين إذا كان المستخدم مشرفاً
     if user_id in ADMIN_IDS:
         keyboard.append([InlineKeyboardButton('👑 لوحة المشرفين', callback_data='admin_panel')])
     
@@ -97,9 +106,7 @@ async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             f"• رصيدك في البوت: ${user_balance:.2f}"
         )
         
-        keyboard = [
-            [InlineKeyboardButton('🔙 العودة', callback_data='main_menu')]
-        ]
+        keyboard = [[InlineKeyboardButton('🔙 العودة', callback_data='main_menu')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await query.edit_message_text(message, reply_markup=reply_markup, parse_mode='Markdown')
@@ -119,8 +126,7 @@ async def buy_numbers_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await query.edit_message_text(
-        "🛍️ **اختر الخدمة:**\n\n"
-        "اختر الخدمة التي تريد شراء رقم لها:",
+        "🛍️ **اختر الخدمة:**\n\nاختر الخدمة التي تريد شراء رقم لها:",
         reply_markup=reply_markup,
         parse_mode='Markdown'
     )
@@ -147,19 +153,13 @@ async def show_countries(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 
                 if count > 0:
                     button_text = f"🇺🇳 {country_info['name']} - ${price} ({count})"
-                    keyboard.append([
-                        InlineKeyboardButton(
-                            button_text, 
-                            callback_data=f'country_{country_id}'
-                        )
-                    ])
+                    keyboard.append([InlineKeyboardButton(button_text, callback_data=f'country_{country_id}')])
         
         keyboard.append([InlineKeyboardButton('🔙 العودة', callback_data='buy_numbers')])
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await query.edit_message_text(
-            f"🌍 **اختر الدولة للخدمة: {SERVICES[service_code]}**\n\n"
-            "اختر الدولة التي تريد الرقم منها:",
+            f"🌍 **اختر الدولة للخدمة: {SERVICES[service_code]}**\n\nاختر الدولة التي تريد الرقم منها:",
             reply_markup=reply_markup,
             parse_mode='Markdown'
         )
@@ -239,8 +239,7 @@ async def get_code(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await query.edit_message_text(
-                f"⏳ **في انتظار الكود...**\n\n"
-                f"لم يصل الكود بعد. يرجى الانتظار قليلاً ثم الضغط على تحديث.",
+                f"⏳ **في انتظار الكود...**\n\nلم يصل الكود بعد. يرجى الانتظار قليلاً ثم الضغط على تحديث.",
                 reply_markup=reply_markup,
                 parse_mode='Markdown'
             )
@@ -261,9 +260,7 @@ async def cancel_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             orders_db[order_id]['status'] = 'cancelled'
         
         await query.edit_message_text(
-            f"✅ **تم إلغاء الطلب بنجاح**\n\n"
-            f"🆔 رقم الطلب: `{order_id}`\n"
-            f"تم إلغاء الطلب واسترجاع الرصيد.",
+            f"✅ **تم إلغاء الطلب بنجاح**\n\n🆔 رقم الطلب: `{order_id}`\nتم إلغاء الطلب واسترجاع الرصيد.",
             parse_mode='Markdown'
         )
         
@@ -303,13 +300,8 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             f"📊 **إحصائيات البوت:**\n"
             f"• إجمالي المستخدمين: {total_users}\n"
             f"• إجمالي الطلبات: {total_orders}\n"
-            f"• الطلبات النشطة: {active_orders}\n\n"
-            f"📱 **الأرقام المتاحة:**\n"
+            f"• الطلبات النشطة: {active_orders}"
         )
-        
-        for service, count in list(numbers_status.items())[:5]:
-            if count > 0:
-                message += f"• {SERVICES.get(service, service)}: {count}\n"
         
         await query.edit_message_text(message, reply_markup=reply_markup, parse_mode='Markdown')
         
@@ -343,20 +335,36 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """معالجة الرسائل النصية"""
     await update.message.reply_text(
-        "يرجى استخدام الأزرار في القائمة للتفاعل مع البوت.\n"
-        "اكتب /start لعرض القائمة الرئيسية."
+        "يرجى استخدام الأزرار في القائمة للتفاعل مع البوت.\nاكتب /start لعرض القائمة الرئيسية."
     )
 
-def main():
-    if not TELEGRAM_BOT_TOKEN:
-        raise ValueError("يجب تعيين متغير البيئة TELEGRAM_BOT_TOKEN")
-    
-    # إنشاء التطبيق مع الإصدار المتوافق
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-    
-    # إضافة المعالجات
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.error(f"حدث خطأ: {context.error}")
+
+# ========== إعدادات Webhook ==========
+
+async def set_webhook(application: Application):
+    """تعيين Webhook"""
+    if WEBHOOK_URL:
+        webhook_url = f"{WEBHOOK_URL}/webhook"
+        await application.bot.set_webhook(url=webhook_url)
+        logger.info(f"✅ تم تعيين Webhook: {webhook_url}")
+    else:
+        logger.warning("❌ لم يتم تعيين WEBHOOK_URL، البوت سيعمل بـ Polling")
+
+async def on_startup(application: Application):
+    """تشغيل عند بدء التطبيق"""
+    await set_webhook(application)
+    logger.info("✅ البوت يعمل باستخدام Webhooks")
+
+async def on_shutdown(application: Application):
+    """تشغيل عند إيقاف التطبيق"""
+    await application.bot.delete_webhook()
+    logger.info("✅ تم إيقاف Webhook")
+
+def setup_handlers(application: Application):
+    """إعداد معالجات البوت"""
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
@@ -380,10 +388,54 @@ def main():
     application.add_handler(CallbackQueryHandler(lambda update, ctx: update.callback_query.answer("قيد التطوير..."), 
                                               pattern='^admin_users$'))
     
-    print("🤖 البوت يعمل...")
+    # معالج الأخطاء
+    application.add_error_handler(error_handler)
+
+def main():
+    """الدالة الرئيسية"""
+    if not TELEGRAM_BOT_TOKEN:
+        raise ValueError("يجب تعيين متغير البيئة TELEGRAM_BOT_TOKEN")
     
-    # بدء البوت
-    application.run_polling()
+    # إنشاء التطبيق
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    
+    # إعداد المعالجات
+    setup_handlers(application)
+    
+    # تشغيل البوت
+    if WEBHOOK_URL:
+        # وضع Webhook (للاستضافة)
+        from aiohttp import web
+        import ssl
+        
+        async def handle_webhook(request):
+            """معالجة طلبات Webhook"""
+            try:
+                data = await request.json()
+                update = Update.de_json(data, application.bot)
+                await application.process_update(update)
+                return web.Response(status=200)
+            except Exception as e:
+                logger.error(f"خطأ في معالجة Webhook: {e}")
+                return web.Response(status=400)
+        
+        async def health_check(request):
+            """فحص صحة الخدمة"""
+            return web.Response(text="✅ البوت يعمل", status=200)
+        
+        # إنشاء تطبيق aiohttp
+        app = web.Application()
+        app.router.add_post('/webhook', handle_webhook)
+        app.router.add_get('/health', health_check)
+        app.router.add_get('/', health_check)
+        
+        logger.info(f"🚀 بدء البوت على PORT {PORT} مع Webhook")
+        web.run_app(app, host='0.0.0.0', port=PORT)
+        
+    else:
+        # وضع Polling (للتطوير)
+        logger.info("🚀 بدء البوت في وضع Polling")
+        application.run_polling()
 
 if __name__ == "__main__":
     main()
