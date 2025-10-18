@@ -4,11 +4,15 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python bot.py
+    startCommand: python app.py
     envVars:
       - key: TELEGRAM_BOT_TOKEN
-        value: your_bot_token_here
+        sync: false
       - key: SMS_ACTIVATE_API_KEY
-        value: your_sms_activate_api_key_here
+        sync: false
       - key: ADMIN_IDS
-        value: "123456789"
+        sync: false
+      - key: WEBHOOK_URL
+        sync: false
+      - key: PORT
+        value: 8080
